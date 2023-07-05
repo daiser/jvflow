@@ -68,6 +68,12 @@ public class Flow<I, O> implements Input<I> {
         return observedFlow;
     }
 
+    public <S> Flow<S, S> select(Function<O, Iterable<S>> selector) {
+        var s = new Selector<>(selector);
+        this.attach(s);
+        return s.outFlow;
+    }
+
     @SafeVarargs
     public final <C> ArrayList<Flow<O, O>> segregate(Function<O, Iterable<C>> classify, C... classes) {
         return this.segregate(classify, ArraysAreFuckingIterable.fixJava(classes));
@@ -78,5 +84,62 @@ public class Flow<I, O> implements Input<I> {
         this.attach(classificator);
         return classificator.getFlows();
     }
+
+    private static final class Classificator<V, C> implements Input<V> {
+        private final Function<V, Iterable<C>> classify;
+        private final Map<C, Flow<V, V>> flowMap = new HashMap<>();
+        private final Flow<V, V> unclassified;
+        private final ArrayList<Flow<V, V>> flows = new ArrayList<>();
+
+        public Classificator(Function<V, Iterable<C>> classify, Iterable<C> classes, boolean withUnclassified) {
+            this.classify = classify;
+            for (var c : classes) {
+                Flow<V, V> classFlow = Flow.start();
+                this.flows.add(classFlow);
+                this.flowMap.put(c, classFlow);
+            }
+
+            this.unclassified = withUnclassified ? Flow.start() : null;
+            if (this.unclassified != null) {
+                this.flows.add(this.unclassified);
+            }
+        }
+
+        public Classificator(Function<V, Iterable<C>> classify, Iterable<C> classes) {
+            this(classify, classes, false);
+        }
+
+
+        public ArrayList<Flow<V, V>> getFlows() {
+            return this.flows;
+        }
+
+        @Override
+        public void accept(V value) {
+            var classes = this.classify.apply(value);
+            for (var class_ : classes) {
+                var flow = this.flowMap.getOrDefault(class_, this.unclassified);
+                if (flow != null) {
+                    flow.accept(value);
+                }
+            }
+        }
+    }
+
+    private static final class Selector<I, O> implements Input<I> {
+        public final Flow<O, O> outFlow = Flow.start();
+        private final Function<I, Iterable<O>> selector;
+
+        public Selector(Function<I, Iterable<O>> selector) {
+            this.selector = selector;
+        }
+
+
+        @Override
+        public void accept(I value) {
+            this.outFlow.acceptMany(this.selector.apply(value));
+        }
+    }
+
 }
 
