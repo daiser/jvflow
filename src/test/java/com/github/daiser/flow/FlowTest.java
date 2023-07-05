@@ -3,8 +3,7 @@ package com.github.daiser.flow;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 
-import java.util.ArrayList;
-import java.util.Iterator;
+import java.util.*;
 import java.util.function.Function;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -108,6 +107,27 @@ class FlowTest {
         assertArrayEquals(
                 new String[]{"1", "2", "3", "4", "5",},
                 strings.toArray(new String[0])
+        );
+    }
+
+    @Test
+    void select() {
+        // cooking
+        var filesystem = new HashMap<String, List<String>>() {{
+            put("folder1", Arrays.asList("file1", "file2"));
+            put("folder2", Arrays.asList("file3", "file4"));
+        }};
+        var f = Flow.<String>start();
+        var files = f.select(filesystem::get).collect();
+
+        // running
+        f.accept("folder1");
+        f.accept("folder2");
+
+        // checking
+        assertArrayEquals(
+                new String[]{"file1", "file2", "file3", "file4"},
+                files.toArray(new String[0])
         );
     }
 
