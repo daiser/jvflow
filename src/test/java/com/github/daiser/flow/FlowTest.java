@@ -159,6 +159,35 @@ class FlowTest {
         );
     }
 
+    @Test
+    void segregateUnclassified() {
+        // cooking
+        var f = Flow.<Integer>start();
+        Function<Integer, Iterable<String>> classify = (Integer n) -> {
+            var classes = new ArrayList<String>();
+            for (var div = 2; div < 10; div++) {
+                if (n % div == 0) {
+                    classes.add(String.format("div%d", div));
+                }
+            }
+
+            return classes;
+        };
+        var flows = f.segregateWithUnclassified(classify, "div5");
+        var div5s = flows.get(0).collect();
+        var others = flows.get(1).collect();
+
+        // running
+        f.acceptMany(new Range(1, 51));
+
+        // checking
+        assertArrayEquals(
+                new Integer[]{5, 10, 15, 20, 25, 30, 35, 40, 45, 50},
+                div5s.toArray(new Integer[0])
+        );
+        assertEquals(40, others.size());
+    }
+
     static class Range implements Iterable<Integer>, Iterator<Integer> {
         private final int to;
         private final int step;
