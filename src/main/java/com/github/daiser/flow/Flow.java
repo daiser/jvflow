@@ -80,9 +80,26 @@ public class Flow<I, O> implements Input<I> {
     }
 
     public final <C> ArrayList<Flow<O, O>> segregate(Function<O, Iterable<C>> classify, Iterable<C> classes) {
-        var classificator = new Classificator<>(classify, classes);
+        var classificator = new Classificator<>(classify, classes, false);
         this.attach(classificator);
         return classificator.getFlows();
+    }
+
+    public final <C> ArrayList<Flow<O, O>> segregateWithUnclassified(
+            Function<O, Iterable<C>> classify,
+            Iterable<C> classes
+    ) {
+        var classificator = new Classificator<>(classify, classes, true);
+        this.attach(classificator);
+        return classificator.getFlows();
+    }
+
+    @SafeVarargs
+    public final <C> ArrayList<Flow<O, O>> segregateWithUnclassified(
+            Function<O, Iterable<C>> classify,
+            C... classes
+    ) {
+        return this.segregateWithUnclassified(classify, ArraysAreFuckingIterable.fixJava(classes));
     }
 
     private static final class Classificator<V, C> implements Input<V> {
@@ -105,10 +122,6 @@ public class Flow<I, O> implements Input<I> {
             }
         }
 
-        public Classificator(Function<V, Iterable<C>> classify, Iterable<C> classes) {
-            this(classify, classes, false);
-        }
-
 
         public ArrayList<Flow<V, V>> getFlows() {
             return this.flows;
@@ -116,12 +129,16 @@ public class Flow<I, O> implements Input<I> {
 
         @Override
         public void accept(V value) {
-            var classes = this.classify.apply(value);
-            for (var class_ : classes) {
-                var flow = this.flowMap.getOrDefault(class_, this.unclassified);
-                if (flow != null) {
-                    flow.accept(value);
-                }
+            var flows = new ArrayList<Flow<V, V>>();
+            for (var class_ : this.classify.apply(value)) {
+                if (this.flowMap.containsKey(class_))
+                    flows.add(this.flowMap.get(class_));
+            }
+            if (flows.size() == 0 && this.unclassified != null) {
+                flows.add(this.unclassified);
+            }
+            for (var flow : flows) {
+                flow.accept(value);
             }
         }
     }
